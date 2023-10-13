@@ -43,6 +43,7 @@ error_noresults = "Could not get results"
 error_unsupported_lang = "\nthis language is currently not supported by bing"
 error_bad_images = "Bad images"
 error_no_images = "No images"
+error_too_vague = "This prompt was too vague to generate appropriate, high quality images. Please try a longer, more descriptive prompt."
 # Action messages
 sending_message = "Sending request..."
 wait_message = "Waiting for results..."
@@ -60,26 +61,20 @@ class ImageGen:
     """
     Image generation by Microsoft Bing
     Parameters:
-        auth_cookie: str
-        auth_cookie_SRCHHPGUSR: str
+        all_cookies: List[Dict]
     Optional Parameters:
         debug_file: str
         quiet: bool
-        all_cookies: List[Dict]
     """
 
     def __init__(
         self,
-        auth_cookie: str,
-        auth_cookie_SRCHHPGUSR: str,
+        all_cookies: List[Dict],
         debug_file: Union[str, None] = None,
         quiet: bool = False,
-        all_cookies: List[Dict] = None,
     ) -> None:
         self.session: requests.Session = requests.Session()
         self.session.headers = HEADERS
-        self.session.cookies.set("_U", auth_cookie)
-        self.session.cookies.set("SRCHHPGUSR", auth_cookie_SRCHHPGUSR)
         if all_cookies:
             for cookie in all_cookies:
                 self.session.cookies.set(cookie["name"], cookie["value"])
@@ -239,28 +234,22 @@ class ImageGenAsync:
     """
     Image generation by Microsoft Bing
     Parameters:
-        auth_cookie: str
+        all_cookies: list[dict]
     Optional Parameters:
         debug_file: str
         quiet: bool
-        all_cookies: list[dict]
     """
 
     def __init__(
         self,
-        auth_cookie: str = None,
+        all_cookies: List[Dict],
         debug_file: Union[str, None] = None,
         quiet: bool = False,
-        all_cookies: List[Dict] = None,
     ) -> None:
-        if auth_cookie is None and not all_cookies:
-            raise Exception("No auth cookie provided")
         self.session = httpx.AsyncClient(
             headers=HEADERS,
             trust_env=True,
         )
-        if auth_cookie:
-            self.session.cookies.update({"_U": auth_cookie})
         if all_cookies:
             for cookie in all_cookies:
                 self.session.cookies.update(
@@ -397,13 +386,11 @@ async def async_image_gen(
     prompt: str,
     download_count: int,
     output_dir: str,
-    u_cookie=None,
+    all_cookies,
     debug_file=None,
     quiet=False,
-    all_cookies=None,
 ):
     async with ImageGenAsync(
-        u_cookie,
         debug_file=debug_file,
         quiet=quiet,
         all_cookies=all_cookies,
@@ -416,8 +403,7 @@ async def async_image_gen(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-U", help="Auth cookie from browser", type=str)
-    parser.add_argument("--cookie-file", help="File containing auth cookie", type=str)
+    parser.add_argument("--cookie-file", help="File containing auth cookie", type=str, required=True)
     parser.add_argument(
         "--prompt",
         help="Prompt to generate images for",
@@ -474,19 +460,15 @@ def main():
             with open(args.cookie_file, encoding="utf-8") as file:
                 cookie_json = json.load(file)
 
-    if args.U is None and args.cookie_file is None:
-        raise Exception("Could not find auth cookie")
-
     if args.download_count > 4:
         raise Exception("The number of downloads must be less than five")
 
     if not args.asyncio:
         # Create image generator
         image_generator = ImageGen(
-            args.U,
+            cookie_json,
             args.debug_file,
             args.quiet,
-            all_cookies=cookie_json,
         )
         image_generator.save_images(
             image_generator.get_images(args.prompt),
@@ -499,10 +481,9 @@ def main():
                 args.prompt,
                 args.download_count,
                 args.output_dir,
-                args.U,
+                cookie_json,
                 args.debug_file,
                 args.quiet,
-                all_cookies=cookie_json,
             ),
         )
 
