@@ -123,6 +123,13 @@ class ImageGen:
             if self.debug_file:
                 self.debug(f"ERROR: {error_unsupported_lang}")
             raise Exception(error_unsupported_lang)
+        if (
+            "#gil_err_d{display:none}.gil_err_tc{color:#fff;padding:24px}"
+            in response.text.lower()
+        ):
+            if self.debug_file:
+                self.debug(f"ERROR: {error_too_vague}")
+            raise Exception(error_too_vague)
         if response.status_code != 302:
             # if rt4 fails, try rt3
             url = f"{BING_URL}/images/create?q={url_encoded_prompt}&rt=3&FORM=GENCRE"
@@ -288,6 +295,13 @@ class ImageGenAsync:
             raise Exception(
                 "Your prompt has been blocked by Bing. Try to change any bad words and try again.",
             )
+        if (
+            "#gil_err_d{display:none}.gil_err_tc{color:#fff;padding:24px}"
+            in response.text.lower()
+        ):
+            if self.debug_file:
+                self.debug(f"ERROR: {error_too_vague}")
+            raise Exception(error_too_vague)
         if response.status_code != 302:
             # if rt4 fails, try rt3
             url = f"{BING_URL}/images/create?q={url_encoded_prompt}&rt=4&FORM=GENCRE"
